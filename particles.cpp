@@ -30,10 +30,23 @@
 #include "common.h"
 #include "Plotting.h"
 #include <iostream>
+#include <thread>
+#include <mutex>
 #ifdef  _OPENMP
 #include "omp.h"
 #endif
+#define NT
 using namespace std;
+
+/*
+    Variables for BARRIER
+    arrival = UNLOCKED
+    departure =  LOCKED
+    **Lock departure immediately in SimulateParticles()
+*/
+mutex arrival;
+mutex departure;
+int count;
 
 extern double size;
 
@@ -62,7 +75,7 @@ void apply_forces( particle_t* particles, int n){
 #endif
     for( int i = 0; i < n; i++ ) {
         particles[i].ax = particles[i].ay = 0;
-	if ((particles[i].vx != 0) || (particles[i].vx != 0)){
+	if ((particles[i].vx != 0) || (particles[i].vy != 0)){
 	    for (int j = 0; j < n; j++ ){
 		if (i==j)
 		    continue;
@@ -128,27 +141,34 @@ void move_particles( particle_t* particles, int n)
 
 // This is the main driver routine that runs the simulation
 void SimulateParticles(int nsteps, particle_t *particles, int n, int nt, int chunk, int nplot, bool imbal, double &uMax, double &vMax, double &uL2, double &vL2, Plotter *plotter, FILE *fsave ){
+
+    //so that departure starts off locked and threads stay in first barrier
+    departure.lock();
+
     for( int step = 0; step < nsteps; step++ ) {
     //
     //  compute forces
     //
 	apply_forces(particles,n);
+    //Barrier(nt);
 
 	// If we asked for an imbalanced distribution
 	if (imbal)
 	    imbal_particles(particles,n);
-//     Debugging output
-//      list_particles(particles,n);
-    
+    // Debugging output
+    // list_particles(particles,n);
+    //Barrier(nt);
+
     //
     //  move particles
     //
 	move_particles(particles,n);
-
+    //Barrier(nt);
 
 	if (nplot && ((step % nplot ) == 0)){
 
-	// Computes the absolute maximum velocity 
+	// Computes the absolute maximum velocity
+    // single thread
 	    VelNorms(particles,n,uMax,vMax,uL2,vL2);
 	    plotter->updatePlot(particles,n,step,uMax,vMax,uL2,vL2);
 	}
@@ -160,5 +180,17 @@ void SimulateParticles(int nsteps, particle_t *particles, int n, int nt, int chu
 	if( fsave && (step%SAVEFREQ) == 0 )
 	    save( fsave, n, particles );
     }
+}
+
+void Barrier(int numThreads){
+    arrival.lock( );                // atomically count the
+    count++;                        // waiting threads
+    if (count < numThreads) arrival.unlock( );
+    else departure.unlock( );       // last processor enables all to go
+
+    departure.lock( );
+    count--;                        // atomically decrement
+    if (count > 0) departure.unlock( );
+    else arrival.unlock( );         // last processor resets state
 }
 

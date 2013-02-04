@@ -67,6 +67,7 @@ endif
 
 C++FLAGS += -Wall -pedantic
 CFLAGS += -Wall -pedantic
+# LIB += -lpthread
 
 TARGETS = nbody
 
