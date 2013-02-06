@@ -32,6 +32,7 @@
 #include <iostream>
 #include <thread>
 #include <mutex>
+#include <atomic>
 #ifdef  _OPENMP
 #include "omp.h"
 #endif
@@ -48,6 +49,10 @@ mutex arrival;
 mutex departure;
 int count;
 
+//for dynamic partitioning
+int numOfParticles;
+atomic<int> particlesTraversed;
+
 extern double size;
 
 extern double dt;
@@ -62,39 +67,33 @@ void imbal_particles(particle_t *particles, int n);
 //
 void apply_forces( particle_t* particles, int n){
 
-#ifdef  _OPENMP
-#ifdef DYN
-#if CHUNK
-#pragma omp parallel for shared(particles,n) schedule(dynamic,CHUNK)
-#else
-#pragma omp parallel for shared(particles,n) schedule(dynamic)
-#endif
-#else
-#pragma omp parallel for shared(particles,n)
-#endif
-#endif
-    for( int i = 0; i < n; i++ ) {
-        particles[i].ax = particles[i].ay = 0;
-	if ((particles[i].vx != 0) || (particles[i].vy != 0)){
-	    for (int j = 0; j < n; j++ ){
-		if (i==j)
-		    continue;
-		double dx = particles[j].x - particles[i].x;
-		double dy = particles[j].y - particles[i].y;
-		double r2 = dx * dx + dy * dy;
-		if( r2 > cutoff*cutoff )
-		    continue;
-		r2 = fmax( r2, min_r*min_r );
-		double r = sqrt( r2 );
+    int base;
+    while(particlesTraversed.load() < numOfParticles){
+        //set up for next chunk of particles thread will compute
+        particlesTraversed.fetch_add(n);
+        for( int i = particlesTraversed; i < base + n; i++ ) {
+            particles[i].ax = particles[i].ay = 0;
+            if ((particles[i].vx != 0) || (particles[i].vy != 0)){
+                for (int j = 0; j < n; j++ ){
+                    if (i==j)
+                        continue;
+                    double dx = particles[j].x - particles[i].x;
+                    double dy = particles[j].y - particles[i].y;
+                    double r2 = dx * dx + dy * dy;
+                    if( r2 > cutoff*cutoff )
+                        continue;
+                    r2 = fmax( r2, min_r*min_r );
+                    double r = sqrt( r2 );
 
-		//
-		//  very simple short-range repulsive force
-		//
-		double coef = ( 1 - cutoff / r ) / r2 / mass;
-		particles[i].ax += coef * dx;
-		particles[i].ay += coef * dy;
+                    //
+                    //  very simple short-range repulsive force
+                    //
+                    double coef = ( 1 - cutoff / r ) / r2 / mass;
+                    particles[i].ax += coef * dx;
+                    particles[i].ay += coef * dy;
 
-	    }
+                }
+            }
         }
     }
 }
@@ -104,37 +103,31 @@ void apply_forces( particle_t* particles, int n){
 //
 void move_particles( particle_t* particles, int n)
 {
-#ifdef  _OPENMP
-#ifdef DYN
-#if CHUNK
-#pragma omp parallel for shared(particles,n) schedule(dynamic,CHUNK)
-#else
-#pragma omp parallel for shared(particles,n) schedule(dynamic)
-#endif
-#else
-#pragma omp parallel for shared(particles,n)
-#endif
-#endif
-    for( int i = 0; i < n; i++ ) {
-    //
-    //  slightly simplified Velocity Verlet integration
-    //  conserves energy better than explicit Euler method
-    //
-        particles[i].vx += particles[i].ax * dt;
-        particles[i].vy += particles[i].ay * dt;
-        particles[i].x  += particles[i].vx * dt;
-        particles[i].y  += particles[i].vy * dt;
+    int base;
+    while(particlesTraversed.load() < numOfParticles){
+        //set up for next chunk of particles thread will compute
+        particlesTraversed.fetch_add(n);
+        for( int i = particlesTraversed; i < base + n; i++ ) {
+        //
+        //  slightly simplified Velocity Verlet integration
+        //  conserves energy better than explicit Euler method
+        //
+            particles[i].vx += particles[i].ax * dt;
+            particles[i].vy += particles[i].ay * dt;
+            particles[i].x  += particles[i].vx * dt;
+            particles[i].y  += particles[i].vy * dt;
 
-    //
-    //  bounce off the walls
-    //
-        while( particles[i].x < 0 || particles[i].x > size ) {
-            particles[i].x  = particles[i].x < 0 ? -particles[i].x : 2*size-particles[i].x;
-            particles[i].vx = -particles[i].vx;
-        }
-        while( particles[i].y < 0 || particles[i].y > size ) {
-            particles[i].y  = particles[i].y < 0 ? -particles[i].y : 2*size-particles[i].y;
-            particles[i].vy = -particles[i].vy;
+        //
+        //  bounce off the walls
+        //
+            while( particles[i].x < 0 || particles[i].x > size ) {
+                particles[i].x  = particles[i].x < 0 ? -particles[i].x : 2*size-particles[i].x;
+                particles[i].vx = -particles[i].vx;
+            }
+            while( particles[i].y < 0 || particles[i].y > size ) {
+                particles[i].y  = particles[i].y < 0 ? -particles[i].y : 2*size-particles[i].y;
+                particles[i].vy = -particles[i].vy;
+            }
         }
     }
 }
@@ -142,6 +135,10 @@ void move_particles( particle_t* particles, int n)
 // This is the main driver routine that runs the simulation
 void SimulateParticles(int nsteps, particle_t *particles, int n, int nt, int chunk, int nplot, bool imbal, double &uMax, double &vMax, double &uL2, double &vL2, Plotter *plotter, FILE *fsave ){
 
+    //the one thread that updates the plotter and does VelNorms 
+    //thread * t = new thread[nt + 1];
+    
+    thread * t = new thread[8];
     //so that departure starts off locked and threads stay in first barrier
     departure.lock();
 
@@ -165,15 +162,20 @@ void SimulateParticles(int nsteps, particle_t *particles, int n, int nt, int chu
 	move_particles(particles,n);
     //Barrier(nt);
 
-	if (nplot && ((step % nplot ) == 0)){
+    // Computes the absolute maximum velocity
+    /*
+        **NOTES**
+        single thread for VelNorms?
+            -use COPY, not reference to "particles"
+        s
+    */
 
-	// Computes the absolute maximum velocity
-    // single thread
-	    VelNorms(particles,n,uMax,vMax,uL2,vL2);
+	if (nplot && ((step % nplot ) == 0)){
+        VelNorms(particles,n,uMax,vMax,uL2,vL2);
 	    plotter->updatePlot(particles,n,step,uMax,vMax,uL2,vL2);
 	}
 
-	VelNorms(particles,n,uMax,vMax,uL2,vL2);
+	
     //
     //  save if necessary
     //

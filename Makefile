@@ -27,6 +27,7 @@ include $(PUB)/Arch/arch.gnu-4.7_c++11
 ifeq ($(dyn),1)
 C++FLAGS    +=  -fopenmp -DDYN
 CFLAGS      +=  -fopenmp -DDYN
+LDFLAGS      +=  -fopenmp -DDYN
 endif
 
 # Sets the chunk size for dynamic scheduling
@@ -34,6 +35,7 @@ endif
 ifdef chunk
 C++FLAGS    +=  -fopenmp -DDYN -DCHUNK=$(chunk)
 CFLAGS      +=  -fopenmp -DDYN -DCHUNK=$(chunk)
+LDFLAGS      +=  -fopenmp -DDYN
 endif
 # End openMP options
 
@@ -67,7 +69,6 @@ endif
 
 C++FLAGS += -Wall -pedantic
 CFLAGS += -Wall -pedantic
-# LIB += -lpthread
 
 TARGETS = nbody
 
@@ -76,7 +77,7 @@ all:	$(TARGETS)
 OBJ = nbody.o common.o particles.o particlesHelper.o Plotting.o cmdLine.o
 
 nbody: $(OBJ)
-	$(C++LINK) $(C++FLAGS) -o $@ $(LIBS) $(OBJ)
+	$(C++LINK) $(LDFLAGS) -o $@ $(LDLIBS) $(OBJ)
 
 	
 # ===========================
