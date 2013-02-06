@@ -31,6 +31,7 @@
 #include "Plotting.h"
 #include <iostream>
 #include <thread>
+#include <atomic>
 #include <mutex>
 #include <atomic>
 #ifdef  _OPENMP
@@ -45,9 +46,44 @@ using namespace std;
     departure =  LOCKED
     **Lock departure immediately in SimulateParticles()
 */
+/*
 mutex arrival;
 mutex departure;
 int count;
+*/
+
+
+class Barrier {
+private:
+    int maxThreads;
+    std::mutex in;
+    std::mutex out;
+    std::atomic<int> numThreads;
+public:
+    Barrier(int mt) : maxThreads (mt) {
+        out.lock();
+        numThreads.store(0);
+    }
+    void barrier() {
+        in.lock();
+        numThreads.fetch_add(1);
+        if(numThreads.load() == maxThreads) {
+            out.unlock();
+        }
+        else {
+            in.unlock();
+        }
+        out.lock();
+        numThreads.fetch_sub(1);
+        if(numThreads.load() == 0) {
+            in.unlock();
+        }
+        else {
+            out.unlock();
+        }
+    }
+};
+
 
 //for dynamic partitioning
 int numOfParticles;
@@ -142,50 +178,41 @@ void SimulateParticles(int nsteps, particle_t *particles, int n, int nt, int chu
     
     thread * t = new thread[8];
     //so that departure starts off locked and threads stay in first barrier
-    departure.lock();
+    //departure.lock();
 
     for( int step = 0; step < nsteps; step++ ) {
-    //
-    //  compute forces
-    //
-	apply_forces(particles,n);
-    //Barrier(nt);
 
-	// If we asked for an imbalanced distribution
-	if (imbal)
-	    imbal_particles(particles,n);
-    // Debugging output
-    // list_particles(particles,n);
-    //Barrier(nt);
+        // compute forces
+        apply_forces(particles,n);
 
-    //
-    //  move particles
-    //
-	move_particles(particles,n);
-    //Barrier(nt);
+        // If we asked for an imbalanced distribution
+        if (imbal)
+            imbal_particles(particles,n);
 
-    // Computes the absolute maximum velocity
-    /*
-        **NOTES**
-        single thread for VelNorms?
-            -use COPY, not reference to "particles"
-        s
-    */
+        // Debugging output
+        //list_particles(particles,n);
 
-	if (nplot && ((step % nplot ) == 0)){
-        VelNorms(particles,n,uMax,vMax,uL2,vL2);
-	    plotter->updatePlot(particles,n,step,uMax,vMax,uL2,vL2);
-	}
+        // move particles
+        move_particles(particles,n);
 
-	
-    //
-    //  save if necessary
-    //
-	if( fsave && (step%SAVEFREQ) == 0 )
-	    save( fsave, n, particles );
+        //if(thread_id == 0) {
+        if (nplot && ((step % nplot ) == 0)){
+
+            // Computes the absolute maximum velocity
+            // single thread
+            VelNorms(particles,n,uMax,vMax,uL2,vL2);
+            plotter->updatePlot(particles,n,step,uMax,vMax,uL2,vL2);
+        }
+
+        // save if necessary
+
+        if( fsave && (step%SAVEFREQ) == 0 )
+            save( fsave, n, particles );
+        //}
     }
 }
 
+/*
 void Barrier(int numThreads){
     arrival.lock( );                // atomically count the
     count++;                        // waiting threads
@@ -197,4 +224,4 @@ void Barrier(int numThreads){
     if (count > 0) departure.unlock( );
     else arrival.unlock( );         // last processor resets state
 }
-
+*/
