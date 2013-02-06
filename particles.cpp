@@ -70,8 +70,9 @@ void apply_forces( particle_t* particles, int n){
     int base;
     while(particlesTraversed.load() < numOfParticles){
         //set up for next chunk of particles thread will compute
+        base = particlesTraversed.load();
         particlesTraversed.fetch_add(n);
-        for( int i = particlesTraversed; i < base + n; i++ ) {
+        for( int i = base; i < base + n; i++ ) {
             particles[i].ax = particles[i].ay = 0;
             if ((particles[i].vx != 0) || (particles[i].vy != 0)){
                 for (int j = 0; j < n; j++ ){
@@ -106,8 +107,9 @@ void move_particles( particle_t* particles, int n)
     int base;
     while(particlesTraversed.load() < numOfParticles){
         //set up for next chunk of particles thread will compute
+        base = particlesTraversed.load();
         particlesTraversed.fetch_add(n);
-        for( int i = particlesTraversed; i < base + n; i++ ) {
+        for( int i = base; i < base + n; i++ ) {
         //
         //  slightly simplified Velocity Verlet integration
         //  conserves energy better than explicit Euler method
