@@ -34,10 +34,6 @@
 #include <atomic>
 #include <mutex>
 #include <atomic>
-#ifdef  _OPENMP
-#include "omp.h"
-#endif
-#define NT
 using namespace std;
 
 /*
@@ -52,6 +48,25 @@ mutex departure;
 int count;
 */
 
+//for thread function
+struct SimulateArgs{
+    //calculated in original callback
+    int chunkSize;
+    //from original callback
+    int nsteps;
+    particle_t *particles;
+    int n;
+    int nt;
+    int chunk;
+    int nplot;
+    bool imbal;
+    double uMax;
+    double vMax;
+    double uL2;
+    double vL2;
+    Plotter *plotter;
+    FILE *fsave;
+};
 
 class Barrier {
 private:
@@ -84,9 +99,12 @@ public:
     }
 };
 
+//flags
+bool block = false;
 
 //for dynamic partitioning
 int numOfParticles;
+atomic<int> counted;
 atomic<int> particlesTraversed;
 
 extern double size;
@@ -106,12 +124,12 @@ void apply_forces( particle_t* particles, int n){
     int base;
     while(particlesTraversed.load() < numOfParticles){
         //set up for next chunk of particles thread will compute
-        base = particlesTraversed.load();
-        particlesTraversed.fetch_add(n);
-        for( int i = base; i < base + n; i++ ) {
+        base = particlesTraversed.fetch_add(n);
+
+        for( int i = base; i < base + n; ++i ) {
             particles[i].ax = particles[i].ay = 0;
             if ((particles[i].vx != 0) || (particles[i].vy != 0)){
-                for (int j = 0; j < n; j++ ){
+                for (int j = 0; j < n; ++j ){
                     if (i==j)
                         continue;
                     double dx = particles[j].x - particles[i].x;
@@ -132,6 +150,10 @@ void apply_forces( particle_t* particles, int n){
                 }
             }
         }
+        //BLOCK partitioning
+        //return after one chunk (aka a block) is computed
+        if(block)
+            return;
     }
 }
 
@@ -143,9 +165,9 @@ void move_particles( particle_t* particles, int n)
     int base;
     while(particlesTraversed.load() < numOfParticles){
         //set up for next chunk of particles thread will compute
-        base = particlesTraversed.load();
-        particlesTraversed.fetch_add(n);
-        for( int i = base; i < base + n; i++ ) {
+        base = particlesTraversed.fetch_add(n);
+
+        for( int i = base; i < base + n; ++i) {
         //
         //  slightly simplified Velocity Verlet integration
         //  conserves energy better than explicit Euler method
@@ -167,49 +189,115 @@ void move_particles( particle_t* particles, int n)
                 particles[i].vy = -particles[i].vy;
             }
         }
+        //BLOCK partitioning
+        //return after one chunk (aka a block) is computed
+        if(block)
+            return;
+    }
+}
+
+//thread function
+void _SimulateParticles(SimulateArgs *args, int thread_id, Barrier * barrier){
+    for( int step = 0; step < args->nsteps; ++step ) {
+        //set particlesTraversed to 0 fr every loop
+        particlesTraversed.store(0);
+
+        //
+        //  compute forces
+        //
+        apply_forces(args->particles,args->chunkSize);
+        barrier->barrier();
+
+        // If we asked for an imbalanced distribution
+
+        if (args->imbal){
+            if(thread_id == 0)
+                imbal_particles(args->particles,args->chunkSize);
+            // Debugging output
+            //list_particles(args->particles,args->n);
+            barrier->barrier();
+        }
+
+        //
+        //  move particles
+        //
+        move_particles(args->particles,args->chunkSize);
+        barrier->barrier();
+        if(thread_id == 0) {
+            VelNorms(args->particles,args->n,args->uMax,args->vMax,args->uL2,args->vL2);
+        }
+        //Thread 0 does this work ALONE
+        if (args->nplot && ((step % args->nplot ) == 0)){
+            if(thread_id == 0) {
+                // Computes the absolute maximum velocity
+                VelNorms(args->particles,args->n,args->uMax,args->vMax,args->uL2,args->vL2);
+                args->plotter->updatePlot(args->particles,args->n,step,args->uMax,args->vMax,args->uL2,args->vL2);
+            }
+            barrier->barrier();
+        }
+    
+        //
+        //  save if necessary
+        //
+        if( args->fsave && (step%SAVEFREQ) == 0 ){
+            if(thread_id == 0) 
+                save( args->fsave, args->n, args->particles);
+            barrier->barrier();
+        }
     }
 }
 
 // This is the main driver routine that runs the simulation
-void SimulateParticles(int nsteps, particle_t *particles, int n, int nt, int chunk, int nplot, bool imbal, double &uMax, double &vMax, double &uL2, double &vL2, Plotter *plotter, FILE *fsave ){
+void SimulateParticles(int nsteps, particle_t *particles, 
+                        int n, int nt, int chunk, int nplot, 
+                        bool imbal, double &uMax, double &vMax, 
+                        double &uL2, double &vL2, Plotter *plotter, 
+                        FILE *fsave )
+{   
+    SimulateArgs sargs;
+    thread * t = new thread[nt + 1];
+    Barrier * barrier = new Barrier(nt + 1);
+    numOfParticles = n;
 
-    //the one thread that updates the plotter and does VelNorms 
-    //thread * t = new thread[nt + 1];
+    //intilaize struct feilds
+    sargs.nsteps = nsteps;
+    sargs.particles = particles;
+    sargs.n = n;
+    sargs.nt = nt;
+    sargs.chunk = chunk;
+    sargs.nplot = nplot;
+    sargs.imbal = imbal;
+    sargs.plotter = plotter;
+    sargs.fsave = fsave;
     
-    thread * t = new thread[8];
-    //so that departure starts off locked and threads stay in first barrier
-    //departure.lock();
 
-    for( int step = 0; step < nsteps; step++ ) {
-
-        // compute forces
-        apply_forces(particles,n);
-
-        // If we asked for an imbalanced distribution
-        if (imbal)
-            imbal_particles(particles,n);
-
-        // Debugging output
-        //list_particles(particles,n);
-
-        // move particles
-        move_particles(particles,n);
-
-        //if(thread_id == 0) {
-        if (nplot && ((step % nplot ) == 0)){
-
-            // Computes the absolute maximum velocity
-            // single thread
-            VelNorms(particles,n,uMax,vMax,uL2,vL2);
-            plotter->updatePlot(particles,n,step,uMax,vMax,uL2,vL2);
-        }
-
-        // save if necessary
-
-        if( fsave && (step%SAVEFREQ) == 0 )
-            save( fsave, n, particles );
-        //}
+    //BLOCK
+    if(chunk == -1){
+        block = true;
+        sargs.chunkSize = n / nt;
     }
+    //DYNAMIC
+    else{
+        block = false;
+        sargs.chunkSize = chunk;
+    }
+    for(int i = 0; i < nt + 1; ++i){
+        t[i] = thread(_SimulateParticles, &sargs, i, ref(barrier));
+    }
+
+    for(int i = 0; i < nt; i++)
+            t[i].join();
+
+    uMax = sargs.uMax;
+    cout << "umax" << sargs.uMax << endl;
+    vMax = sargs.vMax;
+    cout << "vmax" << sargs.vMax << endl;
+    uL2 = sargs.uL2;
+    cout << "ul2" << sargs.uL2 << endl;
+    vL2 = sargs.vL2;
+    cout << "vl2" << sargs.vL2 << endl;
+
+
 }
 
 /*
