@@ -155,6 +155,7 @@ void apply_forces( particle_t* particles, int n){
         if(block)
             return;
     }
+    return;
 }
 
 //
@@ -194,26 +195,25 @@ void move_particles( particle_t* particles, int n)
         if(block)
             return;
     }
+    return;
 }
 
 //thread function
 void _SimulateParticles(SimulateArgs *args, int thread_id, Barrier * barrier){
     for( int step = 0; step < args->nsteps; ++step ) {
         //set particlesTraversed to 0 fr every loop
-        particlesTraversed.store(0);
 
         //
         //  compute forces
         //
         apply_forces(args->particles,args->chunkSize);
         barrier->barrier();
-
         // If we asked for an imbalanced distribution
 
         if (args->imbal){
             if(thread_id == 0)
                 imbal_particles(args->particles,args->chunkSize);
-            // Debugging output
+            //Debugging output
             //list_particles(args->particles,args->n);
             barrier->barrier();
         }
@@ -244,7 +244,9 @@ void _SimulateParticles(SimulateArgs *args, int thread_id, Barrier * barrier){
                 save( args->fsave, args->n, args->particles);
             barrier->barrier();
         }
-    }
+        particlesTraversed.store(0);
+    }    
+    return;
 }
 
 // This is the main driver routine that runs the simulation
@@ -255,9 +257,10 @@ void SimulateParticles(int nsteps, particle_t *particles,
                         FILE *fsave )
 {   
     SimulateArgs sargs;
-    thread * t = new thread[nt];
+    thread t[nt];
     Barrier * barrier = new Barrier(nt);
     numOfParticles = n;
+    particlesTraversed.store(0);
 
     //intilaize struct feilds
     sargs.nsteps = nsteps;
@@ -285,13 +288,17 @@ void SimulateParticles(int nsteps, particle_t *particles,
         t[i] = thread(_SimulateParticles, &sargs, i, ref(barrier));
     }
 
-    for(int i = 0; i < nt; i++)
-            t[i].join();
+    for(int i = 0; i < nt; ++i){
+        cout<< "joining " << i << endl;
+        t[i].join();
+    }
 
     uMax = sargs.uMax;
     vMax = sargs.vMax;
     uL2 = sargs.uL2;
     vL2 = sargs.vL2;
+
+    return;
 
 
 }
