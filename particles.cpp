@@ -227,15 +227,15 @@ void _SimulateParticles(SimulateArgs *args, int thread_id, Barrier * barrier){
             VelNorms(args->particles,args->n,args->uMax,args->vMax,args->uL2,args->vL2);
         }
         //Thread 0 does this work ALONE
-        if (args->nplot && ((step % args->nplot ) == 0)){
-            if(thread_id == 0) {
+        if(thread_id == 0) {
+            if (args->nplot && ((step % args->nplot ) == 0)){
                 // Computes the absolute maximum velocity
                 VelNorms(args->particles,args->n,args->uMax,args->vMax,args->uL2,args->vL2);
                 args->plotter->updatePlot(args->particles,args->n,step,args->uMax,args->vMax,args->uL2,args->vL2);
             }
-            barrier->barrier();
+              //VelNorms(args->particles,args->n,args->uMax,args->vMax,args->uL2,args->vL2);   
         }
-    
+        barrier->barrier();
         //
         //  save if necessary
         //
@@ -255,8 +255,8 @@ void SimulateParticles(int nsteps, particle_t *particles,
                         FILE *fsave )
 {   
     SimulateArgs sargs;
-    thread * t = new thread[nt + 1];
-    Barrier * barrier = new Barrier(nt + 1);
+    thread * t = new thread[nt];
+    Barrier * barrier = new Barrier(nt);
     numOfParticles = n;
 
     //intilaize struct feilds
@@ -281,7 +281,7 @@ void SimulateParticles(int nsteps, particle_t *particles,
         block = false;
         sargs.chunkSize = chunk;
     }
-    for(int i = 0; i < nt + 1; ++i){
+    for(int i = 0; i < nt; ++i){
         t[i] = thread(_SimulateParticles, &sargs, i, ref(barrier));
     }
 
@@ -289,13 +289,9 @@ void SimulateParticles(int nsteps, particle_t *particles,
             t[i].join();
 
     uMax = sargs.uMax;
-    cout << "umax" << sargs.uMax << endl;
     vMax = sargs.vMax;
-    cout << "vmax" << sargs.vMax << endl;
     uL2 = sargs.uL2;
-    cout << "ul2" << sargs.uL2 << endl;
     vL2 = sargs.vL2;
-    cout << "vl2" << sargs.vL2 << endl;
 
 
 }
