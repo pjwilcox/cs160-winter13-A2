@@ -1,12 +1,12 @@
                        CSE 160, Introduction to  Parallel Computation
                                 (Winter 2013)
-                Department of Computer Science and Engineering 	
-                        University of California, San Diego 	
+                Department of Computer Science and Engineering
+                        University of California, San Diego
 
 
                         Team Self Evaluation Form
 
-Each team must submit one copy of this self evaluation form. 
+Each team must submit one copy of this self evaluation form.
 The members of each team should discuss how they
 worked together and what to write for the evaluation.
 
@@ -14,42 +14,42 @@ worked together and what to write for the evaluation.
 
 A: Parry Wilcox
 
- 
+
 B: Andrew Shen
 
- 
+
 (2) Estimate how much time each team member devoted to this project.
 
-  	                        A 	       B
-meetings 	  	  	 		5 		   5
-coding 	  	  	 			20		   
-writeup 	  	  	 		1 		   
-planning (alone) 	  	  	8  		   				 
-total (including meetings) 	34  	  	   
+                              A            B
+meetings                      5            5
+coding                        20           8
+writeup                       1            5
+planning (alone)              8            5
+total (including meetings)    34           23
 
 
-(3) Describe 
+(3) Describe
 (a) what the major responsibilities of each team member were;
-		Algorithm: 		Parry (threads/chunk/block)
-						Andrew (barrier)
-		Implementation: What we designed, we 
-		Debugging:		Parry/Andrew
+        Algorithm:         Parry (threads/chunk/block)
+                        Andrew (barrier)
+        Implementation: What we designed, we wrote
+        Debugging:        Parry/Andrew
 
 (b) whether or not you completed the assignment;
-		Yes, but not confident it's as efficient as it could be. Not enough
-		tests were done.
+        Yes, but not confident it's as efficient as it could be. Not enough
+        tests were done.
 
 (c) the major strengths and weaknesses in your team, e.g. how
 your team worked together;
-		GIT! It was the best way to get the code to both of us and much cleaner than the last assignment. Unfortunately, there was a scheduling problem, and sometimes code wasn't pushed. We need to make better habits of pushing since our schedules really don't match. Also, we started working over google chat when we couldn't be together. We have different styles of debugging, but it allowed us to see different problems, which helped with progress.
+        GIT! It was the best way to get the code to both of us and much cleaner than the last assignment. Unfortunately, there was a scheduling problem, and sometimes code wasn't pushed. We need to make better habits of pushing since our schedules really don't match. Also, we started working over google chat when we couldn't be together. We have different styles of debugging, but it allowed us to see different problems, which helped with progress.
 
 (d) the lessons learned from these events;
-		Google chat will work best when we want to work together late at night. A lot of obstancles made it really difficult to go back out after going home afterhours.
+        Google chat will work best when we want to work together late at night. A lot of obstancles made it really difficult to go back out after going home afterhours.
 
 (e) whether and how you plan to change the way your work together and
-		We're slowly starting to keep more constant communication. Also, we know we need to work sooner and harder rather than later because of a debugging issue we ended up having near the end.
+        We're slowly starting to keep more constant communication. Also, we know we need to work sooner and harder rather than later because of a debugging issue we ended up having near the end.
 
 (f) anything else that comes to mind.
-		Parry really wants to keep workon on how to make this program better than she made it.
+        Parry really wants to keep workon on how to make this program better than she made it.
 
 
