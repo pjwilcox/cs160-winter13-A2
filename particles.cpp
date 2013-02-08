@@ -210,14 +210,9 @@ void _SimulateParticles(SimulateArgs *args, int thread_id, Barrier * barrier){
         barrier->barrier();
         // If we asked for an imbalanced distribution
 
-        if (args->imbal){
-            if(thread_id == 0)
-                imbal_particles(args->particles,args->chunkSize);
-            //Debugging output
-            //list_particles(args->particles,args->n);
-            barrier->barrier();
-        }
-
+        
+        particlesTraversed.store(0);
+        barrier->barrier();
         //
         //  move particles
         //
@@ -289,7 +284,6 @@ void SimulateParticles(int nsteps, particle_t *particles,
     }
 
     for(int i = 0; i < nt; ++i){
-        cout<< "joining " << i << endl;
         t[i].join();
     }
 
