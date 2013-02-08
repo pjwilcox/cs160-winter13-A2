@@ -118,7 +118,6 @@ void apply_forces( particle_t* particles, int n){
     int base;
     while((base = particlesTraversed.fetch_add(n)) < numOfParticles){
         //set up for next chunk of particles thread will compute
-        //base = particlesTraversed.fetch_add(n);
 
         for( int i = base; i < base + n; ++i ) {
             particles[i].ax = particles[i].ay = 0;
@@ -160,7 +159,6 @@ void move_particles( particle_t* particles, int n)
     int base;
     while((base = particlesTraversed.fetch_add(n)) < numOfParticles){
         //set up for next chunk of particles thread will compute
-        //base = particlesTraversed.fetch_add(n);
 
         for( int i = base; i < base + n; ++i) {
         //
@@ -195,6 +193,7 @@ void move_particles( particle_t* particles, int n)
 //thread function
 void _SimulateParticles(SimulateArgs *args, int thread_id, Barrier * barrier){
     for( int step = 0; step < args->nsteps; ++step ) {
+
         //set particlesTraversed to 0 fr every loop
 
         //
@@ -203,6 +202,7 @@ void _SimulateParticles(SimulateArgs *args, int thread_id, Barrier * barrier){
         if(thread_id == 0) particlesTraversed.store(0);
         barrier->barrier();
 
+
         apply_forces(args->particles,args->chunkSize);
         barrier->barrier();
 
@@ -210,42 +210,32 @@ void _SimulateParticles(SimulateArgs *args, int thread_id, Barrier * barrier){
 
         barrier->barrier();
 
-        
-        particlesTraversed.store(0);
-        barrier->barrier();
-
         //
         //  move particles
         //
+
         move_particles(args->particles,args->chunkSize);
         barrier->barrier();
 
+        //Thread 0 does this work ALONE
         if(thread_id == 0) {
             particlesTraversed.store(0);
-            VelNorms(args->particles,args->n,args->uMax,args->vMax,args->uL2,args->vL2);
-        //}
+            //VelNorms(args->particles,args->n,args->uMax,args->vMax,args->uL2,args->vL2);
 
-        //Thread 0 does this work ALONE
-        //if(thread_id == 0) {
             if (args->nplot && ((step % args->nplot ) == 0)){
                 // Computes the absolute maximum velocity
                 VelNorms(args->particles,args->n,args->uMax,args->vMax,args->uL2,args->vL2);
                 args->plotter->updatePlot(args->particles,args->n,step,args->uMax,args->vMax,args->uL2,args->vL2);
             }
-              VelNorms(args->particles,args->n,args->uMax,args->vMax,args->uL2,args->vL2);
-        }
-
-        barrier->barrier();
-        //
-        //  save if necessary
-        //
-        if( args->fsave && (step%SAVEFREQ) == 0 ){
-            if(thread_id == 0)
+            else{
+                VelNorms(args->particles,args->n,args->uMax,args->vMax,args->uL2,args->vL2);
+            }
+            //
+            //  save if necessary
+            //
+            if( args->fsave && (step%SAVEFREQ) == 0 )
                 save( args->fsave, args->n, args->particles);
-            barrier->barrier();
         }
-
-        if(thread_id == 0) particlesTraversed.store(0);
         barrier->barrier();
     }
     return;
@@ -291,7 +281,7 @@ void SimulateParticles(int nsteps, particle_t *particles,
     }
 
     for(int i = 0; i < nt; i++) {
-        if(t[i].joinable())
+        //if(t[i].joinable())
             t[i].join();
     }
 
