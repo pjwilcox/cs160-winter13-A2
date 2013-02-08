@@ -52,7 +52,10 @@ We ran \texttt{nbody -b -nt 8 -s 1352723313 -c \$CHUNKS} for \texttt{\$CHUNKS =
 1, 2, 4, 8, 16, 32, 64, 128, 256, 512}. We notice that as the chunk size goes
 to the number of particles, the load becomes imbalanced because only the first
 few threads receive chunks to work on, causing a decrease in performance to a
-level comparable to block partitioning with one thread.
+level comparable to block partitioning with two threads because only the first two 
+threads will be able to compute 512 particles before there are no more particles to 
+compute. Therefore, even if there are 8 threads running, 6 will be left doing no work,
+while the first 2 do all of it.
 
 \begin{center}\begin{tabular}{c l}
 Chunk size & Time (s) \\
@@ -122,11 +125,21 @@ Dotted line represents chunk partitioning with chunk size of 4.
 
 \section{Performance bottlenecks}
 
-We notice that a lot of time is spent idling at barriers in each thread. This
-is probably a consequence of the extremely conservative way in which we
-implemented coherence, which needed barriers after every parallel computation
-and after every reset of the counter that we used for dynamic chunk scheduling.
+The bottlenecks in our program are from a portion of code that was run serially, on a 
+single thread, at every step for save, VelNorms, updatePlot, and anytime we need to 
+set particlesTraversed to 0. For every step, VelNorms is the bottleneck, and whenever
+the conditions are true, save and updatePlot are their own bottlenecks.
 
-We also had problems with data races. \todo{Parry please help me explain this.}
+Also, there was a large problem with data races while using atomics. The hardest part
+was figuring out how to do 3 things atomically which was pivotal for dynamic 
+partitioning with chunks. Both apply_force and move_particles depend on the atomic
+variable particlesTraversed to set the base for the forloop. The program does NOT
+want two threads to ever have the same base. Setting a local variable to an atomic 
+variable on one line line and then increasing the atomic variable in the next could 
+result in two threads having the same base at some point.
+
+\section{Optimizations}
+
+Unfortunately we didn't have much time to optimize after the initial implimentation.
 
 \end{document}
