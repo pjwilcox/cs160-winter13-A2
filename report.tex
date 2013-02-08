@@ -10,6 +10,8 @@
 \setlength{\parskip}{0in}
 \setlength{\parindent}{0in}
 
+\newcommand{\todo}[1]{\textcolor{red}{TODO #1}}
+
 \begin{document}
 
 \begin{flushleft}
@@ -92,8 +94,13 @@ Thread count & Time (s) \\
 \section{Chunk-scheduled scaling}
 
 We ran \texttt{nbody -b -nt 8 -s 1352723313 -c \$CHUNKS} for \texttt{\$CHUNKS =
-1, 2, 4, 8, 16, 32, 64, 128, 256, 512}. Surprisingly, larger chunk sizes seem
-to perform less efficiently than some of the lower chunk sizes.
+1, 2, 4, 8, 16, 32, 64, 128, 256, 512}. We notice that as the chunk size goes
+to the number of particles, the load becomes imbalanced because only the first
+few threads receive chunks to work on, causing a decrease in performance to a
+level comparable to block partitioning with one thread.
+
+\textit{Note: this was taken with load imbalancing removed. Maybe we should
+get this data again?}
 
 \begin{tabular}{c l}
 Chunk size & Time (s) \\
@@ -133,5 +140,34 @@ Chunk size & Time (s) \\
 
 % http://chart.apis.google.com/chart?cht=lxy&chs=400x300&chma=16,16,16,16&chxt=x,y&chxr=0,0,10|1,0,6&chds=0,10,0,6&chd=t:0,1,2,3,4,5,6,7,8,9,10|1.702923,1.609537,1.602867,1.522705,1.568501,1.628063,1.669489,1.64317,2.191104,3.044322,5.023962&chm=D,000000,0,0,2|o,000000,0,,5&chxl=0:|1|2|4|8|16|32|64|128|256|512|1024
 \includegraphics[width=0.3]{a2_sec2_2.png}
+
+\section{Comparison of block and chunk partitioning}
+
+We ran block and chunk (size 4) partitioning for each allowed number of threads
+(1, 2, 4, 8). There is a comparable speedup between both methods. This is
+probably because having the correct chunk size allows dynamic scheduling to
+more evenly distribute small blocks of work among workers, so that the speedup
+is comparable to the speedup that we get from just throwing more processors at
+the problem.
+
+\begin{tabular}{c l l}
+Thread count & Block time (s) & Chunk=4 time (s) \\
+\hline{}
+1 & 4.162895 & 4.175521 \\
+2 & 2.362130 & 2.401542 \\
+4 & 1.576841 & 1.557133 \\
+8 & 1.592611 & 1.588439
+\end{tabular}
+
+We disabled load imbalancing, so we could not take measurements for it.
+
+\section{Performance bottlenecks}
+
+We notice that a lot of time is spent idling at barriers in each thread. This
+is probably a consequence of the extremely conservative way in which we
+implemented coherence, which needed barriers after every parallel computation
+and after every reset of the counter that we used for dynamic chunk scheduling.
+
+We also had problems with data races. \todo{Parry please help me explain this.}
 
 \end{document}
