@@ -124,7 +124,7 @@ Thread count & Block time (s) & Chunk=4 time (s) \\
 
 Dotted line represents chunk partitioning with chunk size of 4.
 
-\section{Performance bottlenecks}
+\section{Performance and bottlenecks}
 
 The bottlenecks in our program are from a portion of code that was run serially, on a 
 single thread, at every step for save, VelNorms, updatePlot, and anytime we need to 
@@ -133,7 +133,7 @@ the conditions are true, save and updatePlot are their own bottlenecks.
 
 Also, there was a large problem with data races while using atomics. The hardest part
 was figuring out how to do 3 things atomically which was pivotal for dynamic 
-partitioning with chunks. Both apply_force and move_particles depend on the atomic
+partitioning with chunks. Both \texttt{apply\textunderscore{}force} and \texttt{move\textunderscore{}particles} depend on the atomic
 variable particlesTraversed to set the base for the forloop. The program does NOT
 want two threads to ever have the same base. Setting a local variable to an atomic 
 variable on one line line and then increasing the atomic variable in the next could 
