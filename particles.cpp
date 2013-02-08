@@ -233,7 +233,7 @@ void _SimulateParticles(SimulateArgs *args, int thread_id, Barrier * barrier){
                 VelNorms(args->particles,args->n,args->uMax,args->vMax,args->uL2,args->vL2);
                 args->plotter->updatePlot(args->particles,args->n,step,args->uMax,args->vMax,args->uL2,args->vL2);
             }
-              //VelNorms(args->particles,args->n,args->uMax,args->vMax,args->uL2,args->vL2);   
+              VelNorms(args->particles,args->n,args->uMax,args->vMax,args->uL2,args->vL2);   
         }
         barrier->barrier();
         //
