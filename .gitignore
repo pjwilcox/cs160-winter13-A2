@@ -11,3 +11,19 @@
 *.lai
 *.la
 *.a
+
+# The executable and associated stuffs
+core.*
+nbody
+
+# SGE batch scripts and output files
+*.sh
+*.o*
+
+# LaTeX generated files
+*.aux
+*.log
+*.pdf
+
+# vim swap files
+*.sw*
