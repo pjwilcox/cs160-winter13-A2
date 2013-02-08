@@ -25,71 +25,26 @@ We ran \texttt{nbody -s 1352723313 -nt \$NTHREADS} for \texttt{\$NTHREADS = 1,
 2, 4, 8}. For the most part we see the speedup that we expect from using more
 threads:
 
-\begin{tabular}{c l}
+\begin{center}\begin{tabular}{c l}
 Thread Count & Time (s) \\
 \hline{}
-1 & 4.138442 \\
-2 & 1.048486 \\
-4 & 0.539792 \\
+1 & 3.121816 \\
+2 & 2.286314 \\
+4 & 1.377848 \\
+8 & 1.388689
 \end{tabular}
 
-For eight cores, we saw some unusual behavior. For most runs, we observed a
-slight decrease in performance with the correct results:
+% http://chart.apis.google.com/chart?cht=lxy&chs=400x300&chma=16,16,16,16&chxt=x,y&chxr=0,0,8|1,0,3.5,0.5&chds=0,8,0,3.5&chm=D,000000,0,0,2|o,000000,0,,7&chd=t:1,2,4,8|3.121816,2.286314,1.377848,1.388689
+\includegraphics[width=3in]{a2_sec1_1.png}
+\end{center}
 
-\begin{tabular}{l l l l l l l l}
-0.559210 & 0.553203 & 0.573746 & 0.564950 &
-0.581025 & 0.562103 & 0.562194 & 0.545826
-\end{tabular}
-
-But for some runs, particularly immediately consecutive runs, we saw that not
-only did the performance decrease, but the integrity of the results was also
-compromised:
-
-\begin{verbatim}
-###### 4 threads 
-
-dt: 0.0005
-Simulation box size: 0.715542
-Random seed is 1352723313
-# particles : 1024
-Using static BLOCK decomposition
-Nsteps: 1000
-
-n = 1024, nsteps = 1000
-(u,vMax) = ( 9.99816007e-01, 9.97788041e-01 )
-(u,vL2 ) = ( 5.74424367e-01, 5.76119911e-01 )
-Running time = 5.39792000e-01 sec.
-
-###### 8 threads 
-
-dt: 0.0005
-Simulation box size: 0.715542
-Random seed is 1352723313
-# particles : 1024
-Using static BLOCK decomposition
-Nsteps: 1000
-
-n = 1024, nsteps = 1000
-(u,vMax) = ( 3.49390795e+03, 1.23453369e+04 )
-(u,vL2 ) = ( 1.09315048e+02, 3.85857235e+02 )
-Running time = 5.44501000e-01 sec.
-\end{verbatim}
-
-\includegraphics[width=0.3in]{a2_sec1_1.png}
-
-We get a similar result when we use the \texttt{-b} flag for irregular
-particle distribution (\texttt{nbody -b -s 1352723313 -nt \$NTHREADS}):
-
-\begin{tabular}{c l}
-Thread count & Time (s) \\
-\hline{}
-1 & 3.120088 \\
-2 & \textcolor{red}{segmentation fault} \\ % FIXME!
-4 & 0.175171 \\
-8 & 0.351271
-\end{tabular}
-
-\includegraphics[width=0.3in]{a2_sec1_2.png}
+When we run the same study with irregular particle distribution, we find no
+effect on the running times subject to the precision of the timing logic. We
+think that this is because the load imbalancer, which prevents the first $1/4$
+of particles \textit{in memory} from moving, ends up making the processor
+responsible for doing the stopped particles perform \textit{less} work than
+the other processors, so that the time is determined by the other processors
+due to the use of barriers to enforce sequential operation.
 
 \section{Chunk-scheduled scaling}
 
@@ -99,47 +54,46 @@ to the number of particles, the load becomes imbalanced because only the first
 few threads receive chunks to work on, causing a decrease in performance to a
 level comparable to block partitioning with one thread.
 
-\textit{Note: this was taken with load imbalancing removed. Maybe we should
-get this data again?}
-
-\begin{tabular}{c l}
+\begin{center}\begin{tabular}{c l}
 Chunk size & Time (s) \\
 \hline{}
-  1 & 1.561923 \\
-  2 & 1.433125 \\
-  4 & 1.672107 \\
-  8 & 1.546027 \\
- 16 & 1.402706 \\
- 32 & 1.482828 \\
- 64 & 1.540522 \\
-128 & 1.711720 \\
-256 & 2.115562 \\
-512 & 3.067487
+  1 & 1.268889 \\
+  2 & 1.144190 \\
+  4 & 1.185820 \\
+  8 & 1.160155 \\
+ 16 & 1.327447 \\
+ 32 & 1.249977 \\
+ 64 & 1.249480 \\
+128 & 1.308981 \\
+256 & 1.784157 \\
+512 & 2.799230
 \end{tabular}
 
-% http://chart.apis.google.com/chart?cht=lxy&chs=400x300&chma=16,16,16,16&chxt=x,y&chxr=0,0,9|1,0,3.5,0.5&chds=0,9,0,3.5&chd=t:0,1,2,3,4,5,6,7,8,9|1.561923,1.433125,1.672107,1.546027,1.402706,1.482828,1.540522,1.71172,2.115562,3.067487&chm=D,000000,0,0,2|o,000000,0,,5&chxl=0:|1|2|4|8|16|32|64|128|256|512
-\includegraphics[width=0.3in]{a2_sec2_1.png}
+% http://chart.apis.google.com/chart?cht=lc&chs=400x300&chma=16,16,16,16&chxt=x,y&chxr=0,0,9|1,0,3&chds=0,3&chm=D,000000,0,0,2|o,000000,0,,7&chxl=0:|1|2|4|8|16|32|64|128|256|512&chd=t:1.268889,1.14419,1.18582,1.160155,1.327447,1.249977,1.249480,1.308981,1.784157,2.79923
+\includegraphics[width=3in]{a2_sec2_1.png}
+\end{center}
 
 A similar effect appears without load imbalancing.
 
-\begin{tabular}{c l}
+\begin{center}\begin{tabular}{c l}
 Chunk size & Time (s) \\
 \hline{}
-   1 & 1.702923 \\
-   2 & 1.609537 \\
-   4 & 1.602867 \\
-   8 & 1.522705 \\
-  16 & 1.568501 \\
-  32 & 1.628063 \\
-  64 & 1.669489 \\
- 128 & 1.643170 \\
- 256 & 2.191104 \\
- 512 & 3.044322 \\
-1024 & 5.023962
+   1 & 1.493572 \\
+   2 & 1.449901 \\
+   4 & 1.285738 \\
+   8 & 1.439543 \\
+  16 & 1.566758 \\
+  32 & 1.327371 \\
+  64 & 1.376504 \\
+ 128 & 1.339076 \\
+ 256 & 1.838099 \\
+ 512 & 2.804073 \\
+1024 & 4.773173
 \end{tabular}
 
-% http://chart.apis.google.com/chart?cht=lxy&chs=400x300&chma=16,16,16,16&chxt=x,y&chxr=0,0,10|1,0,6&chds=0,10,0,6&chd=t:0,1,2,3,4,5,6,7,8,9,10|1.702923,1.609537,1.602867,1.522705,1.568501,1.628063,1.669489,1.64317,2.191104,3.044322,5.023962&chm=D,000000,0,0,2|o,000000,0,,5&chxl=0:|1|2|4|8|16|32|64|128|256|512|1024
-\includegraphics[width=0.3]{a2_sec2_2.png}
+% http://chart.apis.google.com/chart?cht=lc&chs=400x300&chma=16,16,16,16&chxt=x,y&chxr=0,0,10|1,0,5&chds=0,5&chm=D,000000,0,0,2|o,000000,0,,7&chxl=0:|1|2|4|8|16|32|64|128|256|512|1024&chd=t:1.493572,1.449901,1.285738,1.439543,1.566758,1.327371,1.376504,1.339076,1.838099,2.804073,4.773173
+\includegraphics[width=3in]{a2_sec2_2.png}
+\end{center}
 
 \section{Comparison of block and chunk partitioning}
 
@@ -150,16 +104,21 @@ more evenly distribute small blocks of work among workers, so that the speedup
 is comparable to the speedup that we get from just throwing more processors at
 the problem.
 
+\begin{center}
 \begin{tabular}{c l l}
 Thread count & Block time (s) & Chunk=4 time (s) \\
 \hline{}
-1 & 4.162895 & 4.175521 \\
-2 & 2.362130 & 2.401542 \\
-4 & 1.576841 & 1.557133 \\
-8 & 1.592611 & 1.588439
+1 & 4.153872 & 4.167199 \\
+2 & 2.315583 & 2.358403 \\
+4 & 1.454456 & 1.433370 \\
+8 & 1.437606 & 1.278942
 \end{tabular}
 
-We disabled load imbalancing, so we could not take measurements for it.
+% http://chart.googleapis.com/chart?cht=lxy&chs=400x300&chma=16,16,16,16&chxt=x,y&chxr=0,0,8|1,0,4.5&chds=0,8,0,4.5,0,8,0,4.5&chm=o,000000,0,,7|o,000000,1,,7&chls=2|2,5,5&chco=000000&chd=t:1,2,4,8|4.153872,2.315583,1.454456,1.437606|1,2,4,8|4.167199,2.358403,1.433370,1.278942
+\includegraphics[width=3in]{a2_sec3_1.png}
+\end{center}
+
+Dotted line represents chunk partitioning with chunk size of 4.
 
 \section{Performance bottlenecks}
 
