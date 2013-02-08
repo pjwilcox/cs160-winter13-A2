@@ -91,4 +91,47 @@ Thread count & Time (s) \\
 
 \section{Chunk-scheduled scaling}
 
+We ran \texttt{nbody -b -nt 8 -s 1352723313 -c \$CHUNKS} for \texttt{\$CHUNKS =
+1, 2, 4, 8, 16, 32, 64, 128, 256, 512}. Surprisingly, larger chunk sizes seem
+to perform less efficiently than some of the lower chunk sizes.
+
+\begin{tabular}{c l}
+Chunk size & Time (s) \\
+\hline{}
+  1 & 1.561923 \\
+  2 & 1.433125 \\
+  4 & 1.672107 \\
+  8 & 1.546027 \\
+ 16 & 1.402706 \\
+ 32 & 1.482828 \\
+ 64 & 1.540522 \\
+128 & 1.711720 \\
+256 & 2.115562 \\
+512 & 3.067487
+\end{tabular}
+
+% http://chart.apis.google.com/chart?cht=lxy&chs=400x300&chma=16,16,16,16&chxt=x,y&chxr=0,0,9|1,0,3.5,0.5&chds=0,9,0,3.5&chd=t:0,1,2,3,4,5,6,7,8,9|1.561923,1.433125,1.672107,1.546027,1.402706,1.482828,1.540522,1.71172,2.115562,3.067487&chm=D,000000,0,0,2|o,000000,0,,5&chxl=0:|1|2|4|8|16|32|64|128|256|512
+\includegraphics[width=0.3in]{a2_sec2_1.png}
+
+A similar effect appears without load imbalancing.
+
+\begin{tabular}{c l}
+Chunk size & Time (s) \\
+\hline{}
+   1 & 1.702923 \\
+   2 & 1.609537 \\
+   4 & 1.602867 \\
+   8 & 1.522705 \\
+  16 & 1.568501 \\
+  32 & 1.628063 \\
+  64 & 1.669489 \\
+ 128 & 1.643170 \\
+ 256 & 2.191104 \\
+ 512 & 3.044322 \\
+1024 & 5.023962
+\end{tabular}
+
+% http://chart.apis.google.com/chart?cht=lxy&chs=400x300&chma=16,16,16,16&chxt=x,y&chxr=0,0,10|1,0,6&chds=0,10,0,6&chd=t:0,1,2,3,4,5,6,7,8,9,10|1.702923,1.609537,1.602867,1.522705,1.568501,1.628063,1.669489,1.64317,2.191104,3.044322,5.023962&chm=D,000000,0,0,2|o,000000,0,,5&chxl=0:|1|2|4|8|16|32|64|128|256|512|1024
+\includegraphics[width=0.3]{a2_sec2_2.png}
+
 \end{document}

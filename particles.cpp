@@ -70,16 +70,20 @@ public:
     }
     void barrier() {
         in.lock();
-        numThreads.fetch_add(1);
-        if(numThreads.load() == maxThreads) {
+        //printf("<barrier> %d +1\n", numThreads.fetch_add(1));
+        //if(numThreads.load() == maxThreads)
+        if(numThreads.fetch_add(1) + 1 == maxThreads)
+        {
             out.unlock();
         }
         else {
             in.unlock();
         }
         out.lock();
-        numThreads.fetch_sub(1);
-        if(numThreads.load() == 0) {
+        //printf("<barrier> %d -1\n", numThreads.fetch_sub(1));
+        //if(numThreads.load() == 0)
+        if(numThreads.fetch_sub(1) - 1 == 0)
+        {
             in.unlock();
         }
         else {
@@ -191,7 +195,6 @@ void move_particles( particle_t* particles, int n)
 //thread function
 void _SimulateParticles(SimulateArgs *args, int thread_id, Barrier * barrier){
     for( int step = 0; step < args->nsteps; ++step ) {
-printf("[%d] step %d of %d\n", thread_id, step + 1, args->nsteps);
         //set particlesTraversed to 0 fr every loop
 
         //
@@ -200,11 +203,11 @@ printf("[%d] step %d of %d\n", thread_id, step + 1, args->nsteps);
         if(thread_id == 0) particlesTraversed.store(0);
         barrier->barrier();
 
-printf("[%d] applying forces for step %d of %d\n", thread_id, step + 1, args->nsteps);
         apply_forces(args->particles,args->chunkSize);
         barrier->barrier();
 
         if(thread_id == 0) particlesTraversed.store(0);
+
         barrier->barrier();
 
         
@@ -214,7 +217,6 @@ printf("[%d] applying forces for step %d of %d\n", thread_id, step + 1, args->ns
         //
         //  move particles
         //
-printf("[%d] moving particles for step %d of %d\n", thread_id, step + 1, args->nsteps);
         move_particles(args->particles,args->chunkSize);
         barrier->barrier();
 
@@ -257,7 +259,7 @@ void SimulateParticles(int nsteps, particle_t *particles,
                         FILE *fsave )
 {
     SimulateArgs sargs;
-    thread t[nt];
+    thread * t = new std::thread[nt];
     Barrier * barrier = new Barrier(nt);
     numOfParticles = n;
     particlesTraversed.store(0);
