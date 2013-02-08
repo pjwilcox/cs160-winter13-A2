@@ -206,8 +206,12 @@ void _SimulateParticles(SimulateArgs *args, int thread_id, Barrier * barrier){
         apply_forces(args->particles,args->chunkSize);
         barrier->barrier();
 
-        if(thread_id == 0) particlesTraversed.store(0);
-
+        if(thread_id == 0){
+            particlesTraversed.store(0);
+            if (args->imbal){
+                imbal_particles(args->particles, numOfParticles);
+            }
+        } 
         barrier->barrier();
 
         //
